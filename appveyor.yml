@@ -51,7 +51,7 @@ install:
   - cmd: activate taenv
   - cmd: '%CMD_IN_ENV% conda build conda\ta-lib -q'
 
-  - cmd: conda create -n testenv --yes pip numpy=%NUMPY_VERSION% scipy=%SCIPY_VERSION% ta-lib=0.4.9
+  - cmd: conda create -n testenv --yes -c quantopian pip numpy=%NUMPY_VERSION% scipy=%SCIPY_VERSION% ta-lib=0.4.9
   - cmd: activate testenv
   - cmd: pip install --upgrade pip coverage coveralls
   - cmd: pip install -r etc/requirements.txt
