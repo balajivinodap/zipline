@@ -44,6 +44,11 @@ install:
   - powershell .\etc\install.ps1
   - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
 
+  - cmd: conda update -q conda
+  - conda info -a
+  - conda install conda-build
+  - cmd: '%CMD_IN_ENV% conda build conda\ta-lib -q'
+
   - cmd: conda create -n testenv --yes pip python=%PYTHON_VERSION%
   - cmd: activate testenv
   - cmd: conda install --yes -c quantopian numpy=%NUMPY_VERSION% pandas=%PANDAS_VERSION% scipy=%SCIPY_VERSION% Cython=0.22.1 ta-lib=0.4.9
