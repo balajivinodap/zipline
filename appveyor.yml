@@ -36,9 +36,6 @@ init:
 install:
   # Get cygwin's git out of our PATH.  See https://github.com/omnia-md/conda-dev-recipes/pull/16/files#diff-180360612c6b8c4ed830919bbb4dd459
   - "del C:\\cygwin\\bin\\git.exe"
-  # this installs the appropriate Miniconda (Py2/Py3, 32/64 bit),
-  - powershell .\etc\install.ps1
-  - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
   # http://stackoverflow.com/a/19915585 for 64bit Cython builds
   - ps: |
       if ($env:PYTHON_ARCH -match "64") {
@@ -46,6 +43,10 @@ install:
         copy vcvars64.bat amd64\vcvarsamd64.bat
         popd
       }
+  - exit 1
+  # this installs the appropriate Miniconda (Py2/Py3, 32/64 bit),
+  - powershell .\etc\install.ps1
+  - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
 
   - conda info -a
   - conda install conda-build=1.19.0 --yes
@@ -69,3 +70,6 @@ install:
 test_script:
   - nosetests tests/
   - flake8 zipline tests
+
+on_finish:
+  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
