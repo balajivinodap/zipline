@@ -39,7 +39,6 @@ install:
   - powershell .\etc\install.ps1
   - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
 
-  - cmd: conda update -q conda
   - conda info -a
   - conda install conda-build=1.19.0 --yes
   - ps: $NPY_VERSION_ARR=$env:NUMPY_VERSION -split '.', 0, 'simplematch'
