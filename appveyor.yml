@@ -39,12 +39,12 @@ install:
   - powershell .\etc\install.ps1
   - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
   # http://stackoverflow.com/a/19915585 for 64bit Cython builds
-  - cmd: |
-      if "%PYTHON_ARCH%"=="64" (
-          pushd %FOLDERID_ProgramFilesX86%\Microsoft Visual Studio 9.0\VC\bin\
-          copy vcvars64.bat amd64\vcvarsamd64.bat
-          popd
-      )
+  - ps: |
+      if ($env:PYTHON_ARCH -match "64") {
+        pushd "$env:FOLDERID_ProgramFilesX86\Microsoft Visual Studio 9.0\VC\bin\"
+        copy vcvars64.bat amd64\vcvarsamd64.bat
+        popd
+      }
 
   - conda info -a
   - conda install conda-build=1.19.0 --yes
