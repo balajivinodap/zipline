@@ -45,8 +45,8 @@ install:
   # https://blog.ionelmc.ro/2014/12/21/compiling-python-extensions-on-windows/ for 64bit C compilation
   - ps: |
       if ($env:PYTHON_ARCH -match "64") {
-        if ($env:PYTHON_VERSION -match "3.4") {}
-          copy .\ci\vcvars64.bat C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64
+        if ($env:PYTHON_VERSION -match "3.4") {
+          copy .\ci\vcvars64.bat "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64"
         }
       }
 
