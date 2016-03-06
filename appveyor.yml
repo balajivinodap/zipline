@@ -36,19 +36,20 @@ init:
 install:
   # Get cygwin's git out of our PATH.  See https://github.com/omnia-md/conda-dev-recipes/pull/16/files#diff-180360612c6b8c4ed830919bbb4dd459
   - "del C:\\cygwin\\bin\\git.exe"
-  # http://stackoverflow.com/a/19915585 for 64bit Cython builds
-  - ps: |
-      if ($env:PYTHON_ARCH -match "64") {
-        if ($env:PYTHON_VERSION -match "3.4") {}
-          copy .\ci\vcvars64.bat C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64
-        }
-      }
   # this installs the appropriate Miniconda (Py2/Py3, 32/64 bit),
   - powershell .\ci\appveyor\install.ps1
   - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
 
   - conda info -a
   - conda install conda-build=1.19.0 --yes
+  # https://blog.ionelmc.ro/2014/12/21/compiling-python-extensions-on-windows/ for 64bit C compilation
+  - ps: |
+      if ($env:PYTHON_ARCH -match "64") {
+        if ($env:PYTHON_VERSION -match "3.4") {}
+          copy .\ci\vcvars64.bat C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64
+        }
+      }
+
   - ps: $NPY_VERSION_ARR=$env:NUMPY_VERSION -split '.', 0, 'simplematch'
   - ps: $env:NPY_VERSION_MAJ_MIN=$NPY_VERSION_ARR[0..1] -join ""
   - cmd: '%CMD_IN_ENV% conda build conda/bcolz -q --python=%PYTHON_VERSION% --numpy=%NPY_VERSION_MAJ_MIN%'
