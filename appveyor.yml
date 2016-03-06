@@ -49,7 +49,7 @@ install:
   - cmd: '%CMD_IN_ENV% conda build conda/ta-lib -q --python=%PYTHON_VERSION% --numpy=%NPY_VERSION_MAJ_MIN%'
   - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%PYTHON_VERSION% --numpy=%NPY_VERSION_MAJ_MIN%'
 
-  - cmd: conda create -n testenv --yes --use-local pip numpy=%NUMPY_VERSION% scipy=%SCIPY_VERSION% bcolz=0.12.1 ta-lib=0.4.9
+  - cmd: conda create -n testenv --yes --use-local pip numpy=%NUMPY_VERSION% scipy=%SCIPY_VERSION% bcolz=0.12.1 ta-lib=0.4.9 statsmodels==0.6.1
   - cmd: activate testenv
   - cmd: pip install -r etc/requirements.txt
   - cmd: pip install -r etc/requirements_dev.txt
