@@ -13,7 +13,7 @@ environment:
       PYTHON_VERSION: "2.7"
       PYTHON_ARCH: "64"
       PANDAS_VERSION: "0.17.1"
-      NUMPY_VERSION: "1.10.2"
+      NUMPY_VERSION: "1.10.4"
       CONDA_PY: "27"
       CONDA_NPY: "19"
       SCIPY_VERSION: "0.16.1"
