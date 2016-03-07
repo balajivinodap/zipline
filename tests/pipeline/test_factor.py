@@ -11,13 +11,17 @@ from numpy import (
     empty,
     eye,
     nan,
+    nanmean,
+    nanstd,
     ones,
+    where,
 )
 from numpy.random import randn, seed
 
 from zipline.errors import UnknownRankMethod
 from zipline.lib.rank import masked_rankdata_2d
-from zipline.pipeline import Factor, Filter, TermGraph
+from zipline.lib.normalize import naive_grouped_rowwise_apply as grouped_apply
+from zipline.pipeline import Classifier, Factor, Filter, TermGraph
 from zipline.pipeline.factors import (
     Returns,
     RSI,
@@ -43,6 +47,13 @@ class F(Factor):
     window_length = 0
 
 
+class C(Classifier):
+    dtype = int64_dtype
+    missing_value = -1
+    inputs = ()
+    window_length = 0
+
+
 class Mask(Filter):
     inputs = ()
     window_length = 0
@@ -59,6 +70,7 @@ class FactorTestCase(BasePipelineTestCase):
     def setUp(self):
         super(FactorTestCase, self).setUp()
         self.f = F()
+        self.c = C()
 
     def test_bad_input(self):
         with self.assertRaises(UnknownRankMethod):
@@ -403,3 +415,136 @@ class FactorTestCase(BasePipelineTestCase):
         )
 
         check_arrays(float_result, datetime_result)
+
+    @parameterized.expand((i,) for i in range(5))
+    def test_demean(self, seed_value):
+        shape = (7, 7)
+        eyemask = self.eye_mask(shape=shape)
+        nomask = self.ones_mask(shape=shape)
+
+        # The round call here is purely to make the display of the data here
+        # easier to read when debugging.  Nothing about the algorithm here
+        # depends on the input being rounded.
+        factor_values = self.randn_data(seed=seed_value, shape=shape)
+        classifier_values = (
+            (self.arange_data(shape=shape, dtype=int) + seed_value) % 3
+        )
+        masked_classifier_values = where(eyemask, classifier_values, -1)
+
+        f = self.f
+        c = self.c
+        m = Mask()
+        terms = {
+            'vanilla': f.demean(),
+            'masked': f.demean(mask=m),
+            'grouped': f.demean(groupby=c),
+            'both': f.demean(mask=m, groupby=c)
+        }
+
+        def demean(row):
+            return row - nanmean(row)
+
+        expected = {
+            'vanilla': factor_values - nanmean(factor_values, axis=1)[:, None],
+            'masked': where(
+                eyemask,
+                grouped_apply(factor_values, eyemask, demean),
+                nan,
+            ),
+            'grouped': grouped_apply(
+                factor_values,
+                classifier_values,
+                demean,
+            ),
+            'both': where(
+                eyemask,
+                grouped_apply(
+                    factor_values,
+                    masked_classifier_values,
+                    demean,
+                ),
+                nan,
+            )
+        }
+
+        graph = TermGraph(terms)
+        results = self.run_graph(
+            graph,
+            initial_workspace={
+                f: factor_values,
+                c: classifier_values,
+                Mask(): eyemask,
+            },
+            mask=self.build_mask(nomask),
+        )
+
+        for key in expected:
+            check_arrays(expected[key], results[key])
+
+    @parameterized.expand((i,) for i in range(5))
+    def test_zscore(self, seed_value):
+        shape = (7, 7)
+        eyemask = self.eye_mask(shape=shape)
+        nomask = self.ones_mask(shape=shape)
+
+        # The round call here is purely to make the display of the data here
+        # easier to read when debugging.  Nothing about the algorithm here
+        # depends on the input being rounded.
+        factor_values = self.randn_data(seed=seed_value, shape=shape)
+        classifier_values = (
+            (self.arange_data(shape=shape, dtype=int) + seed_value) % 3
+        )
+        masked_classifier_values = where(eyemask, classifier_values, -1)
+
+        f = self.f
+        c = self.c
+        m = Mask()
+        terms = {
+            'vanilla': f.zscore(),
+            'masked': f.zscore(mask=m),
+            'grouped': f.zscore(groupby=c),
+            'both': f.zscore(mask=m, groupby=c)
+        }
+
+        def zscore(row):
+            return (row - nanmean(row)) / (nanstd(row, ddof=0))
+
+        raw_row_means = nanmean(factor_values, axis=1)[:, None]
+        raw_row_stddevs = nanstd(factor_values, axis=1)[:, None]
+
+        expected = {
+            'vanilla': (factor_values - raw_row_means) / raw_row_stddevs,
+            'masked': where(
+                eyemask,
+                grouped_apply(factor_values, eyemask, zscore),
+                nan,
+            ),
+            'grouped': grouped_apply(
+                factor_values,
+                classifier_values,
+                zscore,
+            ),
+            'both': where(
+                eyemask,
+                grouped_apply(
+                    factor_values,
+                    masked_classifier_values,
+                    zscore,
+                ),
+                nan,
+            )
+        }
+
+        graph = TermGraph(terms)
+        results = self.run_graph(
+            graph,
+            initial_workspace={
+                f: factor_values,
+                c: classifier_values,
+                Mask(): eyemask,
+            },
+            mask=self.build_mask(nomask),
+        )
+
+        for key in expected:
+            check_arrays(expected[key], results[key])

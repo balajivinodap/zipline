@@ -16,6 +16,7 @@ from zipline.pipeline.term import (
 from zipline.utils.input_validation import ensure_dtype
 from zipline.utils.numpy_utils import (
     bool_dtype,
+    int64_dtype,
     NoDefaultMissingValue,
 )
 from zipline.utils.preprocess import preprocess
@@ -162,6 +163,8 @@ class BoundColumn(LoadableTerm):
     def latest(self):
         if self.dtype == bool_dtype:
             from zipline.pipeline.filters import Latest
+        elif self.dtype == int64_dtype:
+            from zipline.pipeline.classifiers import Latest
         else:
             from zipline.pipeline.factors import Latest
         return Latest(

@@ -5,14 +5,16 @@ from functools import wraps
 from operator import attrgetter
 from numbers import Number
 
-from numpy import inf
+from numpy import inf, where, nanmean, nanstd
 from toolz import curry
 
 from zipline.errors import (
     UnknownRankMethod,
     UnsupportedDataType,
 )
+from zipline.lib.normalize import naive_grouped_rowwise_apply
 from zipline.lib.rank import masked_rankdata_2d
+from zipline.pipeline.classifiers import Everything
 from zipline.pipeline.mixins import (
     CustomTermMixin,
     PositiveWindowLengthMixin,
@@ -35,7 +37,6 @@ from zipline.pipeline.filters import (
     PercentileFilter,
     NullFilter,
 )
-from zipline.utils.control_flow import nullctx
 from zipline.utils.numpy_utils import (
     bool_dtype,
     coerce_to_dtype,
@@ -395,6 +396,61 @@ class Factor(ComputableTerm):
             )
         return retval
 
+    def demean(self, mask=NotSpecified, groupby=NotSpecified):
+        """
+        Construct a new Factor that normalizes ``self`` by subtracting each
+        row's mean from the row's values.
+
+        Parameters
+        ----------
+        mask : zipline.pipeline.Filter, optional
+            A mask.
+        groups : zipline.pipeline.Classifier, optional
+            A classifier.
+
+        Notes
+        -----
+        Only supported on Factors of dtype float64.
+        """
+        if self.dtype != float64_dtype:
+            raise TypeError(
+                "demean() is only supported for Factors of dtype float64."
+            )
+
+        return GroupedRowTransform(
+            transform=lambda row: row - row.mean(),
+            factor=self,
+            mask=mask,
+            groupby=groupby,
+        )
+
+    def zscore(self, mask=NotSpecified, groupby=NotSpecified):
+        """
+        Construct a new Factor that normalizes by zscoring each row of self.
+
+        Parameters
+        ----------
+        mask : zipline.pipeline.Filter, optional
+            A mask.
+        groups : zipline.pipeline.Classifier, optional
+            A classifier.
+
+        Notes
+        -----
+        Only supported on Factors of dtype float64.
+        """
+        if self.dtype != float64_dtype:
+            raise TypeError(
+                "zxcore() is only supported for Factors of dtype float64."
+            )
+
+        return GroupedRowTransform(
+            transform=lambda row: (row - nanmean(row)) / nanstd(row),
+            factor=self,
+            mask=mask,
+            groupby=groupby,
+        )
+
     def rank(self, method='ordinal', ascending=True, mask=NotSpecified):
         """
         Construct a new Factor representing the sorted rank of each column
@@ -592,6 +648,89 @@ class NumExprFactor(NumericalExpression, Factor):
     pass
 
 
+class GroupedRowTransform(Factor):
+    """
+    A Factor that transforms an input factor by applying a row-wise
+    shape-preserving transformation on classifier-defined groups of that
+    Factor.
+
+    This is most often useful for normalization operators like ``zscore`` or
+    ``demean``.
+
+    Parameters
+    ----------
+    transform : function[ndarray[ndim=1] -> ndarray[ndim=1]]
+        Function to apply over each row group.
+    factor : zipline.pipeline.Factor
+        The factor providing baseline data to transform.
+    mask : zipline.pipeline.Filter
+        Mask of entries to ignore when calculating transforms.
+    groupby : zipline.pipeline.Classifier
+        Classifier partitioning ``factor`` into groups to use when calculating
+        means.
+
+    Notes
+    -----
+    Users should rarely construct instances of this factor directly.  Instead,
+    they should construct instances via factor normalization methods like
+    ``zscore`` and ``demean``.
+
+    See Also
+    --------
+    zipline.factors.Factor.zscore
+    zipline.factors.Factor.demean
+    """
+    window_length = 0
+
+    def __new__(cls, transform, factor, mask, groupby):
+
+        if mask is NotSpecified:
+            mask = factor.mask
+        else:
+            mask = mask & factor.mask
+
+        if groupby is NotSpecified:
+            groupby = Everything(mask=mask)
+
+        return super(GroupedRowTransform, cls).__new__(
+            GroupedRowTransform,
+            transform=transform,
+            inputs=(factor, groupby),
+            missing_value=factor.missing_value,
+            mask=mask,
+            dtype=factor.dtype,
+        )
+
+    def _init(self, transform, *args, **kwargs):
+        self._transform = transform
+        return super(GroupedRowTransform, self)._init(*args, **kwargs)
+
+    @classmethod
+    def static_identity(cls, transform, *args, **kwargs):
+        return (
+            super(GroupedRowTransform, cls).static_identity(*args, **kwargs),
+            transform,
+        )
+
+    def _compute(self, arrays, dates, assets, mask):
+        data = arrays[0]
+        group_labels = where(
+            mask,
+            arrays[1],
+            self.inputs[1].missing_value,
+        )
+
+        return where(
+            mask,
+            naive_grouped_rowwise_apply(
+                data=data,
+                group_labels=group_labels,
+                func=self._transform,
+            ),
+            self.missing_value,
+        )
+
+
 class Rank(SingleInputMixin, Factor):
     """
     A Factor representing the row-wise rank data of another Factor.
@@ -778,4 +917,3 @@ class CustomFactor(PositiveWindowLengthMixin, CustomTermMixin, Factor):
         median_low15 = MedianValue([USEquityPricing.low], window_length=15)
     '''
     dtype = float64_dtype
-    ctx = nullctx()
