@@ -14,13 +14,18 @@ from zipline.errors import (
 )
 from zipline.lib.normalize import naive_grouped_rowwise_apply
 from zipline.lib.rank import masked_rankdata_2d
-from zipline.pipeline.classifiers import Everything
+from zipline.pipeline.classifiers import Classifier, Everything
 from zipline.pipeline.mixins import (
     CustomTermMixin,
     PositiveWindowLengthMixin,
     SingleInputMixin,
 )
-from zipline.pipeline.term import ComputableTerm, NotSpecified, Term
+from zipline.pipeline.term import (
+    ComputableTerm,
+    NotSpecified,
+    NotSpecifiedType,
+    Term,
+)
 from zipline.pipeline.expression import (
     BadBinaryOperator,
     COMPARISONS,
@@ -33,10 +38,12 @@ from zipline.pipeline.expression import (
     unary_op_name,
 )
 from zipline.pipeline.filters import (
+    Filter,
     NumExprFilter,
     PercentileFilter,
     NullFilter,
 )
+from zipline.utils.input_validation import expect_types
 from zipline.utils.numpy_utils import (
     bool_dtype,
     coerce_to_dtype,
@@ -396,6 +403,10 @@ class Factor(ComputableTerm):
             )
         return retval
 
+    @expect_types(
+        mask=(Filter, NotSpecifiedType),
+        groupby=(Classifier, NotSpecifiedType),
+    )
     def demean(self, mask=NotSpecified, groupby=NotSpecified):
         """
         Construct a new Factor that normalizes ``self`` by subtracting each
@@ -424,6 +435,10 @@ class Factor(ComputableTerm):
             groupby=groupby,
         )
 
+    @expect_types(
+        mask=(Filter, NotSpecifiedType),
+        groupby=(Classifier, NotSpecifiedType),
+    )
     def zscore(self, mask=NotSpecified, groupby=NotSpecified):
         """
         Construct a new Factor that normalizes by zscoring each row of self.
@@ -441,7 +456,7 @@ class Factor(ComputableTerm):
         """
         if self.dtype != float64_dtype:
             raise TypeError(
-                "zxcore() is only supported for Factors of dtype float64."
+                "zscore() is only supported for Factors of dtype float64."
             )
 
         return GroupedRowTransform(
@@ -714,14 +729,15 @@ class GroupedRowTransform(Factor):
 
     def _compute(self, arrays, dates, assets, mask):
         data = arrays[0]
+        null_group_value = self.inputs[1].missing_value
         group_labels = where(
             mask,
             arrays[1],
-            self.inputs[1].missing_value,
+            null_group_value,
         )
 
         return where(
-            mask,
+            group_labels != null_group_value,
             naive_grouped_rowwise_apply(
                 data=data,
                 group_labels=group_labels,
