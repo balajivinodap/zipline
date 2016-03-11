@@ -34,7 +34,6 @@ from zipline.pipeline.expression import (
 )
 from zipline.testing import check_allclose
 from zipline.utils.numpy_utils import datetime64ns_dtype, float64_dtype
-from zipline.utils.test_utils import check_allclose
 
 
 class F(Factor):
