@@ -1,20 +1,16 @@
 language: python
 sudo: false
+fast_finish: true
+python:
+  - 2.7
+  - 3.4
 env:
   global:
     # ANACONDA_TOKEN
     - secure: "akewMYpUiGThDkFsh6alSBwEjWepAFUJPcPv4mu28e/NeIto+tW0Ttyo8ibpU6q9DMbxQ6BRfAZYTjBcEZZDvfuRWYvl1AQmIaCq6yD/3zjc55zGNqEpmR16V854ILvQz81f12Yl6tkD2pTK63ytXVfIYOm0SYNdVQXSVC0jAnI="
   matrix:
-    fast_finish: true
-    include:
-    - python: 2.7
-      env: PANDAS_VERSION=0.16.1 NUMPY_VERSION=1.9.2 SCIPY_VERSION=0.15.1
-    - python: 2.7
-      env: PANDAS_VERSION=0.17.1 NUMPY_VERSION=1.10.4 SCIPY_VERSION=0.16.1
-    - python: 3.4
-      env: PANDAS_VERSION=0.16.1 NUMPY_VERSION=1.9.2 SCIPY_VERSION=0.15.1
-    - python: 3.4
-      env: PANDAS_VERSION=0.17.1 NUMPY_VERSION=1.10.4 SCIPY_VERSION=0.16.1
+    - PANDAS_VERSION=0.16.1 NUMPY_VERSION=1.9.2 SCIPY_VERSION=0.15.1
+    - PANDAS_VERSION=0.17.1 NUMPY_VERSION=1.10.4 SCIPY_VERSION=0.16.1
 cache:
   directories:
     - $HOME/.cache/.pip/
