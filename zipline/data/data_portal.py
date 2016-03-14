@@ -56,6 +56,283 @@ OHLCVP_FIELDS = frozenset([
 HISTORY_FREQUENCIES = set(["1m", "1d"])
 
 
+class DailyAggregator(object):
+
+    def __init__(self, market_opens, daily_reader, minute_reader):
+        self._market_opens = market_opens
+        self._daily_reader = daily_reader
+        self._minute_reader = minute_reader
+
+        self._opens_cache = None
+        self._highs_cache = None
+        self._lows_cache = None
+        self._closes_cache = None
+        self._volumes_cache = None
+
+        self._one_min = pd.Timedelta('1 min').value
+
+    def opens(self, assets, dt):
+        date = dt.date()
+        dt_value = dt.value
+        if self._opens_cache is None or self._opens_cache[0] != date:
+            market_open = self._market_opens[date]
+            self._opens_cache = (dt.date(), market_open, {})
+
+        _, market_open, entries = self._opens_cache
+        opens = []
+        if dt != market_open:
+            prev_dt = dt_value - self._one_min
+        else:
+            prev_dt = None
+
+        for asset in assets:
+            if prev_dt is None:
+                val = self._minute_reader.get_value(asset, dt, 'open')
+                entries[asset] = (dt_value, val)
+                opens.append(val)
+                continue
+            else:
+                try:
+                    last_visited_dt, first_open = entries[asset]
+                    if not pd.isnull(first_open):
+                        opens.append(first_open)
+                        entries[asset] = (dt_value, first_open)
+                        continue
+                    else:
+                        after_last = pd.Timestamp(
+                            last_visited_dt + self._one_min, tz='UTC')
+                        window = self._minute_reader.unadjusted_window(
+                            ['open'], after_last, dt, [asset])[0]
+                        nonnan = window[~pd.isnull(window)]
+                        if len(nonnan):
+                            val = nonnan[0]
+                        else:
+                            val = np.nan
+                        entries[asset] = (dt_value, val)
+                        opens.append(val)
+                        continue
+                except KeyError:
+                    window = self._minute_reader.unadjusted_window(
+                        ['open'], market_open, dt, [asset])[0]
+                    nonnan = window[~pd.isnull(window)]
+                    if len(nonnan):
+                        val = nonnan[0]
+                    else:
+                        val = np.nan
+                    entries[asset] = (dt_value, val)
+                    opens.append(val)
+                    continue
+        return np.array(opens)
+
+    def highs(self, assets, dt):
+        date = dt.date()
+        dt_value = dt.value
+        if self._highs_cache is None or self._highs_cache[0] != date:
+            market_open = self._market_opens[date]
+            self._highs_cache = (dt.date(), market_open, {})
+
+        _, market_open, entries = self._highs_cache
+        highs = []
+        if dt != market_open:
+            prev_dt = dt_value - self._one_min
+        else:
+            prev_dt = None
+
+        for asset in assets:
+            if prev_dt is None:
+                val = self._minute_reader.get_value(asset, dt, 'high')
+                entries[asset] = (dt_value, val)
+                highs.append(val)
+                continue
+            else:
+                try:
+                    last_visited_dt, last_max = entries[asset]
+                    if last_visited_dt == prev_dt:
+                        curr_val = self._minute_reader.get_value(
+                            asset, dt, 'high')
+                        if pd.isnull(curr_val):
+                            val = last_max
+                        elif pd.isnull(last_max):
+                            val = curr_val
+                        else:
+                            val = max(last_max, curr_val)
+                        entries[asset] = (dt_value, val)
+                        highs.append(val)
+                        continue
+                    else:
+                        after_last = pd.Timestamp(
+                            last_visited_dt + self._one_min, tz='UTC')
+                        window = self._minute_reader.unadjusted_window(
+                            ['high'], after_last, dt, [asset])
+                        val = max(last_max, np.nanmax(window))
+                        entries[asset] = (dt_value, val)
+                        highs.append(val)
+                        continue
+                except KeyError:
+                    window = self._minute_reader.unadjusted_window(
+                        ['high'], market_open, dt, [asset])
+                    val = np.nanmax(window)
+                    entries[asset] = (dt_value, val)
+                    highs.append(val)
+                    continue
+        return np.array(highs)
+
+    def lows(self, assets, dt):
+        date = dt.date()
+        dt_value = dt.value
+        if self._lows_cache is None or self._lows_cache[0] != date:
+            market_open = self._market_opens[date]
+            self._lows_cache = (dt.date(), market_open, {})
+
+        _, market_open, entries = self._lows_cache
+        lows = []
+        if dt != market_open:
+            prev_dt = dt_value - self._one_min
+        else:
+            prev_dt = None
+
+        # What if called on same dt?
+
+        for asset in assets:
+            if prev_dt is None:
+                val = self._minute_reader.get_value(asset, dt, 'low')
+                entries[asset] = (dt_value, val)
+                lows.append(val)
+                continue
+            else:
+                try:
+                    last_visited_dt, last_min = entries[asset]
+                    if last_visited_dt == prev_dt:
+                        curr_val = self._minute_reader.get_value(
+                            asset, dt, 'low')
+                        val = np.nanmin([last_min, curr_val])
+                        entries[asset] = (dt_value, val)
+                        lows.append(val)
+                        continue
+                    else:
+                        after_last = pd.Timestamp(
+                            last_visited_dt + self._one_min, tz='UTC')
+                        window = self._minute_reader.unadjusted_window(
+                            ['low'], after_last, dt, [asset])
+                        window_min = np.nanmin(window)
+                        if pd.isnull(window_min):
+                            val = last_min
+                        else:
+                            val = min(last_min, window_min)
+                        entries[asset] = (dt_value, val)
+                        lows.append(val)
+                        continue
+                except KeyError:
+                    window = self._minute_reader.unadjusted_window(
+                        ['low'], market_open, dt, [asset])
+                    val = np.nanmin(window)
+                    entries[asset] = (dt_value, val)
+                    lows.append(val)
+                    continue
+        return np.array(lows)
+
+    def closes(self, assets, dt):
+        date = dt.date()
+        dt_value = dt.value
+        if self._closes_cache is None or self._closes_cache[0] != date:
+            market_open = self._market_opens[date]
+            self._closes_cache = (dt.date(), market_open, {})
+
+        _, market_open, entries = self._closes_cache
+        closes = []
+        if dt != market_open:
+            prev_dt = dt_value - self._one_min
+        else:
+            prev_dt = None
+
+        for asset in assets:
+            if prev_dt is None:
+                val = self._minute_reader.get_value(asset, dt, 'close')
+                entries[asset] = (dt_value, val)
+                closes.append(val)
+                continue
+            else:
+                try:
+                    last_visited_dt, last_close = entries[asset]
+                    if last_visited_dt == prev_dt:
+                        val = self._minute_reader.get_value(
+                            asset, dt, 'close')
+                        if pd.isnull(val):
+                            val = last_close
+                        entries[asset] = (dt_value, val)
+                        closes.append(val)
+                        continue
+                    else:
+                        val = self._minute_reader.get_value(
+                            asset, dt, 'close')
+                        if pd.isnull(val):
+                            val = self.closes(
+                                [asset],
+                                pd.Timestamp(prev_dt, tz='UTC'))
+                        entries[asset] = (dt_value, val)
+                        closes.append(val)
+                        continue
+                except KeyError:
+                    val = self._minute_reader.get_value(
+                        asset, dt, 'close')
+                    if pd.isnull(val):
+                        # !!
+                        val = self.closes([asset],
+                                          pd.Timestamp(prev_dt, tz='UTC'))
+                    entries[asset] = (dt_value, val)
+                    closes.append(val)
+                    continue
+        return np.array(closes)
+
+    def volumes(self, assets, dt):
+        date = dt.date()
+        dt_value = dt.value
+        if self._volumes_cache is None or self._volumes_cache[0] != date:
+            market_open = self._market_opens[date]
+            self._volumes_cache = (dt.date(), market_open, {})
+
+        _, market_open, entries = self._volumes_cache
+        volumes = []
+        if dt != market_open:
+            prev_dt = dt_value - self._one_min
+        else:
+            prev_dt = None
+
+        for asset in assets:
+            if prev_dt is None:
+                val = self._minute_reader.get_value(asset, dt, 'volume')
+                entries[asset] = (dt_value, val)
+                volumes.append(val)
+                continue
+            else:
+                try:
+                    last_visited_dt, last_total = entries[asset]
+                    if last_visited_dt == prev_dt:
+                        val = self._minute_reader.get_value(
+                            asset, dt, 'volume')
+                        val += last_total
+                        entries[asset] = (dt_value, val)
+                        volumes.append(val)
+                        continue
+                    else:
+                        after_last = pd.Timestamp(
+                            last_visited_dt + self._one_min, tz='UTC')
+                        window = self._minute_reader.unadjusted_window(
+                            ['volume'], after_last, dt, [asset])
+                        val = np.nansum(window) + last_total
+                        entries[asset] = (dt_value, val)
+                        volumes.append(val)
+                        continue
+                except KeyError:
+                    window = self._minute_reader.unadjusted_window(
+                        ['volume'], market_open, dt, [asset])
+                    val = np.nansum(window)
+                    entries[asset] = (dt_value, val)
+                    volumes.append(val)
+                    continue
+        return np.array(volumes)
+
+
 class DataPortal(object):
     def __init__(self,
                  env,
@@ -108,6 +385,9 @@ class DataPortal(object):
         self._first_trading_day = None
 
         if self._equity_minute_reader is not None:
+            self._equity_daily_aggregator = DailyAggregator(
+                self.env.open_and_closes.market_open,
+                self._equity_daily_reader, self._equity_minute_reader)
             self.MINUTE_PRICE_ADJUSTMENT_FACTOR = \
                 self._equity_minute_reader._ohlc_inverse
 
@@ -668,38 +948,28 @@ class DataPortal(object):
                 extra_slot=False
             )
         else:
-            all_minutes_for_day = self._get_market_minutes_for_day(
-                end_dt.date())
-            # for the last day of the desired window, use minute
-            # data and aggregate it.
-            last_minute_idx = all_minutes_for_day.searchsorted(end_dt)
-
-            # these are the minutes for the partial day
-            minutes_for_partial_day =\
-                all_minutes_for_day[0:(last_minute_idx + 1)]
-
+            # minute mode, requesting '1d'
             daily_data = self._get_daily_window_for_sids(
                 assets,
                 field_to_use,
                 days_for_window[0:-1]
             )
 
-            minute_data = self._get_minute_window_for_equities(
-                assets,
-                field_to_use,
-                minutes_for_partial_day
-            )
-
-            if field_to_use == 'volume':
-                minute_value = np.sum(minute_data)
-            elif field_to_use == 'open':
-                minute_value = minute_data[0]
-            elif field_to_use == 'close':
-                minute_value = minute_data[-1]
+            if field_to_use == 'open':
+                minute_value = self._equity_daily_aggregator.opens(
+                    assets, end_dt)
             elif field_to_use == 'high':
-                minute_value = np.amax(minute_data)
+                minute_value = self._equity_daily_aggregator.highs(
+                    assets, end_dt)
             elif field_to_use == 'low':
-                minute_value = np.amin(minute_data)
+                minute_value = self._equity_daily_aggregator.lows(
+                    assets, end_dt)
+            elif field_to_use == 'close':
+                minute_value = self._equity_daily_aggregator.closes(
+                    assets, end_dt)
+            elif field_to_use == 'volume':
+                minute_value = self._equity_daily_aggregator.volumes(
+                    assets, end_dt)
 
             # append the partial day.
             daily_data[-1] = minute_value
@@ -1142,14 +1412,15 @@ class DataPortal(object):
             # volumes default to 0, so we don't need to put NaNs in the array
             return_array[:] = np.NAN
 
-        data = self._equity_daily_reader_arrays(field,
-                                                days_in_window,
-                                                assets)
+        if bar_count != 0:
+            data = self._equity_daily_reader_arrays(field,
+                                                    days_in_window,
+                                                    assets)
 
-        if extra_slot:
-            return_array[:len(return_array) - 1, :] = data
-        else:
-            return_array[:len(data)] = data
+            if extra_slot:
+                return_array[:len(return_array) - 1, :] = data
+            else:
+                return_array[:len(data)] = data
         return return_array
 
     @staticmethod

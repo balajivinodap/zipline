@@ -604,6 +604,45 @@ class BcolzMinuteBarReader(object):
             value *= self._ohlc_inverse
         return value
 
+    def get_values(self, sids, dt, field):
+        """
+        Retrieve the pricing info for the given sid, dt, and field.
+
+        Parameters:
+        -----------
+        sid : int
+            Asset identifier.
+        dt : datetime-like
+            The datetime at which the trade occurred.
+        field : string
+            The type of pricing data to retrieve.
+            ('open', 'high', 'low', 'close', 'volume')
+
+        Returns:
+        --------
+        out : float|int
+
+        The market data for the given sid, dt, and field coordinates.
+
+        For OHLC:
+            Returns a float if a trade occurred at the given dt.
+            If no trade occurred, a np.nan is returned.
+
+        For volume:
+            Returns the integer value of the volume.
+            (A volume of 0 signifies no trades for the given dt.)
+        """
+        minute_pos = self._find_position_of_minute(dt)
+        values = [self._open_minute_file(field, sid)[minute_pos]
+                  for sid in sids]
+        if field != 'volume':
+            values = [v if v != 0 else np.nan for v in values]
+            out = np.array(values)
+            out *= self._ohlc_inverse
+        else:
+            out = np.array(values)
+        return out
+
     def get_last_traded_dt(self, asset, dt):
         minute_pos = self._find_last_traded_position(asset, dt)
         if minute_pos == -1:
