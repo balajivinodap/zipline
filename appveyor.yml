@@ -84,7 +84,7 @@ install:
   - ps: >-
       foreach ($recipe in dir .\conda -dir -name) { `
         if ($recipe -eq "zipline") { continue } `
-        & $env:CMD_IN_ENV conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian `
+        cmd /c "$env:CMD_IN_ENV conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian" `
         $RECIPE_OUTPUT = conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output `
         if (Test-Path $RECIPE_OUTPUT) { anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci } `
       }
