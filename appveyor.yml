@@ -82,13 +82,13 @@ install:
   - ps: copy .\ci\appveyor\vcvars64.bat "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64"
 
   - ps: foreach ($recipe in dir .\conda -dir -name) { `
-	        if ($recipe -eq "zipline") { continue } `
-	        & $env:CMD_IN_ENV conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian `
-	        $RECIPE_OUTPUT = conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output `
-	        if (Test-Path $RECIPE_OUTPUT) { `
-	          anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci `
-	        } `
-      }
+        if ($recipe -eq "zipline") { continue } `
+        & $env:CMD_IN_ENV conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian `
+        $RECIPE_OUTPUT = conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output `
+        if (Test-Path $RECIPE_OUTPUT) { `
+          anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci `
+        } `
+    }
   - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian'
 
   - cmd: conda create -n testenv --yes --use-local pip python=%PYTHON_VERSION% numpy=%NUMPY_VERSION% scipy=%SCIPY_VERSION% ta-lib=0.4.9 bcolz=0.12.1 numexpr=2.4.6
