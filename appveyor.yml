@@ -86,7 +86,6 @@ install:
         if ($recipe -eq "zipline") { continue } `
         iex "$env:CMD_IN_ENV conda build conda/$recipe -q --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian"; `
         $RECIPE_OUTPUT=conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output; `
-        echo "$RECIPE_OUTPUT"; `
         if (Test-Path $RECIPE_OUTPUT) { anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci } `
       }
   - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian'
@@ -104,5 +103,3 @@ test_script:
   - nosetests tests/
   - flake8 zipline tests
 
-on_finish:
-- ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
