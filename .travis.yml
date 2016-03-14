@@ -42,7 +42,7 @@ before_script:
 script:
   - nosetests tests/
   - flake8 zipline tests
-
+  # deactive env to get access to anaconda command
   - source deactivate
   - |
     for recipe in $(ls -d conda/*/ | xargs -I {} basename {}); do
@@ -57,6 +57,8 @@ script:
   - exec 3>&1; ZP_OUT=$(conda build conda/zipline --python=$TRAVIS_PYTHON_VERSION --numpy=$NPY_VERSION_MAJ_MIN -c quantopian | tee >(cat - >&3))
   - ZP_OUTPUT=$(echo "$ZP_OUT" | grep "anaconda upload" | awk '{print $NF}')
   - if [[ "$TRAVIS_SECURE_ENV_VARS" = "true" ]]; then anaconda -t $ANACONDA_TOKEN upload $ZP_OUTPUT -u quantopian --label ci; fi
+  # reactivate env (necessary for coveralls)
+  - source activate testenv
 
 after_success:
   - coveralls
