@@ -84,7 +84,7 @@ install:
   - ps: >-
       foreach ($recipe in dir .\conda -dir -name) { `
         if ($recipe -eq "zipline") { continue } `
-        cmd /c "$env:CMD_IN_ENV conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c Quantopian" `
+        cmd /c "$env:CMD_IN_ENV conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian"`
       }
   - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian'
 
