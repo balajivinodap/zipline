@@ -117,7 +117,7 @@ install:
           if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
         } `
       }
-  - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian'
+  - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian -c https://conda.anaconda.org/quantopian/label/ci'
 
   - cmd: conda create -n testenv --yes --use-local pip python=%PYTHON_VERSION% numpy=%NUMPY_VERSION% scipy=%SCIPY_VERSION% ta-lib=0.4.9 bcolz=0.12.1 numexpr=2.4.6
   - cmd: activate testenv
