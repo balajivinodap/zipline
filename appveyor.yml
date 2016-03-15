@@ -8,8 +8,9 @@ environment:
     # See: http://stackoverflow.com/a/13751649/163740
     CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\ci\\appveyor\\run_with_env.cmd"
 
+    # with api:write
     ANACONDA_TOKEN:
-      secure: "kAQlBMAtZDtX1biIsnMHZTOPoPk1lHZr2l21G+NbeJDUewS1OzOSbSNl8zMbDIaW"
+      secure: "u3oPlANiKY5g1yMtcK+2MQfb4ViKGEap3TcBtvS7Y1InyeWs80Ko3/PsP7Lp6qwq"
 
   matrix:
     - PYTHON_VERSION: "2.7"
