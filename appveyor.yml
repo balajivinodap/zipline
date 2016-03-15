@@ -112,7 +112,7 @@ install:
         iex "$env:CMD_IN_ENV conda build conda/$recipe -q --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian -c https://conda.anaconda.org/quantopian/label/ci"; `
         if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
         $RECIPE_OUTPUT=conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output; `
-        if (Test-Path $RECIPE_OUTPUT -and $env:ANACONDA_TOKEN) { `
+        if ($env:ANACONDA_TOKEN -and Test-Path $RECIPE_OUTPUT) { `
           anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci; `
           if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
         } `
@@ -120,7 +120,7 @@ install:
   - cmd: FOR /f %%i IN ('%CMD_IN_ENV% conda build conda/zipline -q --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian -c https://conda.anaconda.org/quantopian/label/ci') DO SET ZP_OUT=%%i;
   - ps: $ZP_OUTPUT=($ZP_OUT | sls -pattern "anaconda upload" -casesensitive | $_.split(' ')[-1])
   - ps: >-
-      if (Test-Path $ZP_OUTPUT -and $env:ANACONDA_TOKEN) { `
+      if ($env:ANACONDA_TOKEN -and Test-Path $ZP_OUTPUT) { `
         anaconda -t $env:ANACONDA_TOKEN upload "$ZP_OUTPUT" -u quantopian --label ci; `
         if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
       }
