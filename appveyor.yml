@@ -113,7 +113,7 @@ install:
         if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
         $RECIPE_OUTPUT=conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output; `
         if ((Test-Path $RECIPE_OUTPUT) -and ($env:ANACONDA_TOKEN)) { `
-          iex "$env:CMD_IN_ENV anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci --no-progress" 2>&1; `
+          iex "$env:CMD_IN_ENV anaconda -t $env:ANACONDA_TOKEN upload $RECIPE_OUTPUT -u quantopian --label ci --no-progress" 2>&1; `
           if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
         } `
       }
@@ -121,7 +121,7 @@ install:
   - ps: $ZP_OUTPUT=(($ZP_OUT | sls "anaconda upload") -split ' ')[-1]
   - ps: >-
       if ((Test-Path $ZP_OUTPUT) -and ($env:ANACONDA_TOKEN)) { `
-        iex "$env:CMD_IN_ENV anaconda -t $env:ANACONDA_TOKEN upload "$ZP_OUTPUT" -u quantopian --label ci --no-progress" 2>&1; `
+        iex "$env:CMD_IN_ENV anaconda -t $env:ANACONDA_TOKEN upload $ZP_OUTPUT -u quantopian --label ci --no-progress" 2>&1; `
         if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
       }
 
