@@ -110,8 +110,12 @@ install:
       foreach ($recipe in dir .\conda -dir -name) { `
         if ($recipe -eq "zipline") { continue } `
         iex "$env:CMD_IN_ENV conda build conda/$recipe -q --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --skip-existing -c quantopian"; `
+        if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
         $RECIPE_OUTPUT=conda build conda/$recipe --python=$env:CONDA_PY --numpy=$env:CONDA_NPY --output; `
-        if (Test-Path $RECIPE_OUTPUT) { anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci } `
+        if (Test-Path $RECIPE_OUTPUT) { `
+          anaconda -t $env:ANACONDA_TOKEN upload "$RECIPE_OUTPUT" -u quantopian --label ci; `
+          if ($LastExitCode -ne 0) { throw "Command failed with exit code $LastExitCode." } `
+        } `
       }
   - cmd: '%CMD_IN_ENV% conda build conda/zipline --python=%CONDA_PY% --numpy=%CONDA_NPY% -c quantopian'
 
