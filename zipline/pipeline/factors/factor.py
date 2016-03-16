@@ -346,6 +346,19 @@ def restrict_to_dtype(dtype, message_template):
         A template for the error message to be raised.
         `message_template.format` will be called with keyword arguments
         `method_name`, `expected_dtype`, and `received_dtype`.
+
+    Usage
+    -----
+    @restrict_to_dtype(
+        dtype=float64_dtype,
+        message_template=(
+            "{method_name}() was called on a factor of dtype {received_dtype}."
+            "{method_name}() requires factors of dtype{expected_dtype}."
+
+        ),
+    )
+    def some_factor_method(self, ...):
+        self.stuff_that_requires_being_float64(...)
     """
     def processor(factor_method, _, factor_instance):
         factor_dtype = factor_instance.dtype
