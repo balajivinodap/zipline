@@ -422,7 +422,7 @@ class Factor(ComputableTerm):
         ----------
         mask : zipline.pipeline.Filter, optional
             A Filter defining values to ignore when computing means.
-        groups : zipline.pipeline.Classifier, optional
+        groupby : zipline.pipeline.Classifier, optional
             A classifier defining partitions over which to compute means.
 
         Example
@@ -451,7 +451,8 @@ class Factor(ComputableTerm):
             2017-03-15   True   True  False   True
             2017-03-16   True   True   True  False
 
-        Then ``f.demean()`` will subtract the row-mean from each entry.
+        Then ``f.demean()`` will subtract the mean from each row produced by
+        ``f``.
 
         ::
 
@@ -461,8 +462,8 @@ class Factor(ComputableTerm):
             2017-03-15 -0.625  0.375  1.375 -1.125
             2017-03-16  0.250  1.250 -1.250 -0.250
 
-        ``f.demean(mask=m)`` will subtract the row-mean from each entry, but
-        means will be calculated ignoring values on the diagonal, and NaNs will
+        ``f.demean(mask=m)`` will subtract the mean from each row, but means
+        will be calculated ignoring values on the diagonal, and NaNs will
         written to the diagonal in the output. Diagonal values are ignored
         because they are the locations where the mask ``m`` produced False.
 
@@ -503,6 +504,9 @@ class Factor(ComputableTerm):
         Notes
         -----
         Only supported on Factors of dtype float64.
+
+        See Also
+        --------
         """
         if self.dtype != float64_dtype:
             raise TypeError(
@@ -540,7 +544,7 @@ class Factor(ComputableTerm):
         ----------
         mask : zipline.pipeline.Filter, optional
             A Filter defining values to ignore when Z-Scoring.
-        groups : zipline.pipeline.Classifier, optional
+        groupby : zipline.pipeline.Classifier, optional
             A classifier defining partitions over which to compute Z-Scores.
 
         Returns
@@ -552,9 +556,16 @@ class Factor(ComputableTerm):
         -----
         Only supported on Factors of dtype float64.
 
+        Example
+        -------
+
+        See :meth:~zipline.pipeline.factors.Factor.demean for an in-depth
+        example of the semantics for ``mask`` and ``groupby``.
+
         See Also
         --------
-        zipline
+        pandas.DataFrame.groupby
+        zipline.factors.Factor.
         """
         if self.dtype != float64_dtype:
             raise TypeError(
