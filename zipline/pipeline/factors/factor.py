@@ -409,15 +409,96 @@ class Factor(ComputableTerm):
     )
     def demean(self, mask=NotSpecified, groupby=NotSpecified):
         """
-        Construct a new Factor that normalizes ``self`` by subtracting each
-        row's mean from the row's values.
+        Construct a Factor that subtracts the mean from each day's result.
+
+        If ``mask`` is supplied, ignore values where ``mask`` returns False
+        when computing row means, and output NaN anywhere the mask is False.
+
+        If ``groupby`` is supplied, compute by partitioning each row based on
+        the values produced by ``groupby``, de-meaning the partitioned arrays,
+        and stitching the sub-results back together.
 
         Parameters
         ----------
         mask : zipline.pipeline.Filter, optional
-            A mask.
+            A Filter defining values to ignore when computing means.
         groups : zipline.pipeline.Classifier, optional
-            A classifier.
+            A classifier defining partitions over which to compute means.
+
+        Example
+        -------
+        Let ``f`` be a Factor which would produce the following output::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13    1.0    2.0    3.0    4.0
+            2017-03-14    1.5    2.5    3.5    1.0
+            2017-03-15    2.0    3.0    4.0    1.5
+            2017-03-16    2.5    3.5    1.0    2.0
+
+        Let ``c`` be a Classifier producing the following output::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13      1      1      2      2
+            2017-03-14      1      1      2      2
+            2017-03-15      1      1      2      2
+            2017-03-16      1      1      2      2
+
+        Let ``m`` be a Filter producing the following output::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13  False   True   True   True
+            2017-03-14   True  False   True   True
+            2017-03-15   True   True  False   True
+            2017-03-16   True   True   True  False
+
+        Then ``f.demean()`` will subtract the row-mean from each entry.
+
+        ::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13 -1.500 -0.500  0.500  1.500
+            2017-03-14 -0.625  0.375  1.375 -1.125
+            2017-03-15 -0.625  0.375  1.375 -1.125
+            2017-03-16  0.250  1.250 -1.250 -0.250
+
+        ``f.demean(mask=m)`` will subtract the row-mean from each entry, but
+        means will be calculated ignoring values on the diagonal, and NaNs will
+        written to the diagonal in the output. Diagonal values are ignored
+        because they are the locations where the mask ``m`` produced False.
+
+        ::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13    NaN -1.000  0.000  1.000
+            2017-03-14 -0.500    NaN  1.500 -1.000
+            2017-03-15 -0.166  0.833    NaN -0.666
+            2017-03-16  0.166  1.166 -1.333    NaN
+
+        ``f.demean(groupby=c)`` will subtract the group-mean of AAPL/MSFT and
+        MCD/BK from their respective entries.  The AAPL/MSFT are grouped
+        together because both assets always produce 1 in the output of the
+        classifier ``c``.  Similarly, MCD/BK are grouped together because they
+        always produce 2.
+
+        ::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13 -0.500  0.500 -0.500  0.500
+            2017-03-14 -0.500  0.500  1.250 -1.250
+            2017-03-15 -0.500  0.500  1.250 -1.250
+            2017-03-16 -0.500  0.500 -0.500  0.500
+
+        ``f.demean(mask=m, groupby=c)`` will also subtract the group-mean of
+        AAPL/MSFT and MCD/BK, but means will be calculated ignoring values on
+        the diagonal , and NaNs will be written to the diagonal in the output.
+
+        ::
+
+                         AAPL   MSFT    MCD     BK
+            2017-03-13    NaN  0.000 -0.500  0.500
+            2017-03-14  0.000    NaN  1.250 -1.250
+            2017-03-15 -0.500  0.500    NaN  0.000
+            2017-03-16 -0.500  0.500  0.000    NaN
 
         Notes
         -----
@@ -441,18 +522,39 @@ class Factor(ComputableTerm):
     )
     def zscore(self, mask=NotSpecified, groupby=NotSpecified):
         """
-        Construct a new Factor that normalizes by zscoring each row of self.
+        Construct a Factor that Z-Scores each day's results.
+
+        The Z-Score of a row is defined as::
+
+            (row - row.mean()) / row.stddev()
+
+        If ``mask`` is supplied, ignore values where ``mask`` returns False
+        when computing row means and standard deviations, and output NaN
+        anywhere the mask is False.
+
+        If ``groupby`` is supplied, compute by partitioning each row based on
+        the values produced by ``groupby``, z-scoring the partitioned arrays,
+        and stitching the sub-results back together.
 
         Parameters
         ----------
         mask : zipline.pipeline.Filter, optional
-            A mask.
+            A Filter defining values to ignore when Z-Scoring.
         groups : zipline.pipeline.Classifier, optional
-            A classifier.
+            A classifier defining partitions over which to compute Z-Scores.
+
+        Returns
+        -------
+        zscored : zipline.pipeline.Factor
+            A Factor producing that z-scores the output of self.
 
         Notes
         -----
         Only supported on Factors of dtype float64.
+
+        See Also
+        --------
+        zipline
         """
         if self.dtype != float64_dtype:
             raise TypeError(
