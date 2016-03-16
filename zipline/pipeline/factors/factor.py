@@ -44,6 +44,7 @@ from zipline.pipeline.filters import (
     NullFilter,
 )
 from zipline.utils.input_validation import expect_types
+from zipline.utils.preprocess import preprocess
 from zipline.utils.numpy_utils import (
     bool_dtype,
     coerce_to_dtype,
@@ -327,26 +328,54 @@ def function_application(func):
     return mathfunc
 
 
-def if_not_float64_tell_caller_to_use_isnull(f):
+def restrict_to_dtype(dtype, message_template):
     """
-    Factor method decorator that checks if self.dtype if float64.
+    A factory for decorators that restricting Factor methods to only be
+    callable on Factors with a specific dtype.
 
-    If the factor instance is of another dtype, this raises a TypeError
-    directing the user to `isnull` or `notnull` instead.
+    This is conceptually similar to
+    zipline.utils.input_validation.expect_dtypes, but provides more flexibility
+    for providing error messages that are specifically targeting Factor
+    methods.
+
+    Parameters
+    ----------
+    dtype : numpy.dtype
+        The dtype on which the decorated method may be called.
+    message_template : str
+        A template for the error message to be raised.
+        `message_template.format` will be called with keyword arguments
+        `method_name`, `expected_dtype`, and `received_dtype`.
     """
-    @wraps(f)
-    def wrapped_method(self):
-        if self.dtype != float64_dtype:
+    def processor(factor_method, _, factor_instance):
+        factor_dtype = factor_instance.dtype
+        if factor_dtype != dtype:
             raise TypeError(
-                "{meth}() was called on a factor of dtype {dtype}.\n"
-                "{meth}() is only defined for dtype float64."
-                "To filter missing data, use isnull() or notnull().".format(
-                    meth=f.__name__,
-                    dtype=self.dtype,
-                ),
+                message_template.format(
+                    method_name=factor_method.__name__,
+                    expected_dtype=dtype.name,
+                    received_dtype=factor_dtype,
+                )
             )
-        return f(self)
-    return wrapped_method
+        return factor_instance
+    return preprocess(self=processor)
+
+if_not_float64_tell_caller_to_use_isnull = restrict_to_dtype(
+    dtype=float64_dtype,
+    message_template=(
+        "{method_name}() was called on a factor of dtype {received_dtype}.\n"
+        "{method_name}() is only defined for dtype {expected_dtype}."
+        "To filter missing data, use isnull() or notnull()."
+    )
+)
+
+float64_only = restrict_to_dtype(
+    dtype=float64_dtype,
+    message_template=(
+        "{method_name}() is only defined on Factors of dtype {expected_dtype},"
+        " but it was called on a Factor of dtype {received_dtype}."
+    )
+)
 
 
 FACTOR_DTYPES = frozenset([datetime64ns_dtype, float64_dtype, int64_dtype])
@@ -407,6 +436,7 @@ class Factor(ComputableTerm):
         mask=(Filter, NotSpecifiedType),
         groupby=(Classifier, NotSpecifiedType),
     )
+    @float64_only
     def demean(self, mask=NotSpecified, groupby=NotSpecified):
         """
         Construct a Factor that subtracts the mean from each day's result.
@@ -508,11 +538,6 @@ class Factor(ComputableTerm):
         See Also
         --------
         """
-        if self.dtype != float64_dtype:
-            raise TypeError(
-                "demean() is only supported for Factors of dtype float64."
-            )
-
         return GroupedRowTransform(
             transform=lambda row: row - row.mean(),
             factor=self,
@@ -524,6 +549,7 @@ class Factor(ComputableTerm):
         mask=(Filter, NotSpecifiedType),
         groupby=(Classifier, NotSpecifiedType),
     )
+    @float64_only
     def zscore(self, mask=NotSpecified, groupby=NotSpecified):
         """
         Construct a Factor that Z-Scores each day's results.
@@ -558,20 +584,14 @@ class Factor(ComputableTerm):
 
         Example
         -------
-
         See :meth:~zipline.pipeline.factors.Factor.demean for an in-depth
         example of the semantics for ``mask`` and ``groupby``.
 
         See Also
         --------
         pandas.DataFrame.groupby
-        zipline.factors.Factor.
+        zipline.factors.Factor.demean
         """
-        if self.dtype != float64_dtype:
-            raise TypeError(
-                "zscore() is only supported for Factors of dtype float64."
-            )
-
         return GroupedRowTransform(
             transform=lambda row: (row - nanmean(row)) / nanstd(row),
             factor=self,
